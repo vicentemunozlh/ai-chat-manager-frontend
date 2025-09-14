@@ -68,8 +68,10 @@ export const apiRequest = async (
   const defaultOptions: RequestInit = {
     headers: {
       'Content-Type': 'application/json',
-      // Add authentication headers here when needed
-      // 'Authorization': `Bearer ${getToken()}`
+      ...(localStorage.getItem('access_token') && {
+        Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+      }),
+      ...options.headers,
     },
     ...options,
   };
@@ -81,7 +83,16 @@ export const apiRequest = async (
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    if (response.status === 204) {
+      return null;
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json();
+    }
+
+    return await response.text();
   } catch (error) {
     console.error('API request failed:', error);
     throw error;
