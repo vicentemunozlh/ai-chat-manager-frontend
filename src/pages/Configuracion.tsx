@@ -12,12 +12,22 @@ interface Prompt {
   updated_at: string
 }
 
+interface Integration {
+  id: string
+  endpoint?: string
+  default_model?: string
+  lastUpdate?: string
+  updated_at?: string
+}
+
 const Configuracion = () => {
   const { user } = useAuth()
   const [prompts, setPrompts] = useState<Prompt[]>([])
-  const [loading, setLoading] = useState(true)
+  const [promptsLoading, setPromptsLoading] = useState(true)
+  const [integrationLoading, setIntegrationLoading] = useState(true)
   const [newPromptName, setNewPromptName] = useState('')
   const [newPromptDescription, setNewPromptDescription] = useState('')
+  const [integration, setIntegration] = useState<Integration | null>(null)
 
   // Fetch prompts from API
   useEffect(() => {
@@ -28,18 +38,26 @@ const Configuracion = () => {
       } catch (error) {
         console.error('Error fetching prompts:', error)
       } finally {
-        setLoading(false)
+        setPromptsLoading(false)
       }
     }
     fetchPrompts()
   }, [])
 
-  // Mock API configuration
-  const apiConfig = {
-    endpoint: 'https://api.openai.com/v1/chat/completions',
-    model: 'gpt-4',
-    lastUpdate: '2024-01-15 10:30'
-  }
+  // Fetch integration from API
+  useEffect(() => {
+    const fetchIntegration = async () => {
+      try {
+        const data = await apiRequest('/integrations')
+        setIntegration(data.integration)
+      } catch (error) {
+        console.error('Error fetching integration:', error)
+      } finally {
+        setIntegrationLoading(false)
+      }
+    }
+    fetchIntegration()
+  }, [])
 
   const handleAddPrompt = async () => {
     if (newPromptName.trim() && newPromptDescription.trim()) {
@@ -86,7 +104,7 @@ const Configuracion = () => {
     }
   }
 
-  if (loading) {
+  if (promptsLoading || integrationLoading) {
     return <div>Loading...</div>
   }
 
@@ -145,7 +163,7 @@ const Configuracion = () => {
             <input 
               type="text" 
               className="form-input" 
-              value={apiConfig.endpoint}
+              value={integration?.endpoint || 'N/A'}
               readOnly
               style={{ backgroundColor: '#f8fafc', color: '#64748b' }}
             />
@@ -156,7 +174,7 @@ const Configuracion = () => {
             <input 
               type="text" 
               className="form-input" 
-              value={apiConfig.model}
+              value={integration?.default_model || 'N/A'}
               readOnly
               style={{ backgroundColor: '#f8fafc', color: '#64748b' }}
             />
@@ -168,7 +186,7 @@ const Configuracion = () => {
           <input 
             type="text" 
             className="form-input" 
-            value={apiConfig.lastUpdate}
+            value={integration?.updated_at || 'N/A'}
             readOnly
             style={{ backgroundColor: '#f8fafc', color: '#64748b' }}
           />
