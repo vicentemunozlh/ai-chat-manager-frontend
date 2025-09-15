@@ -8,7 +8,7 @@ export interface User {
 export interface Conversation {
   id: string;
   inserted_at: string;
-  duration: string;
+  duration_seconds: number;
   status: 'Cerrada' | 'Abierta';
   channel: 'Web' | 'WhatsApp' | 'Instagram';
   rating: number;

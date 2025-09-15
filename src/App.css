@@ -318,6 +318,24 @@ body {
   color: #991b1b;
 }
 
+.badge-light {
+  background-color: #f1f5f9;
+  color: #64748b;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badge-dark {
+  background-color: #1e293b;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
 /* Rating Stars */
 .rating {
   display: flex;

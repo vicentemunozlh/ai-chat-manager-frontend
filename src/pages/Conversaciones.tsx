@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Filter, Calendar, Star } from 'lucide-react'
 import ChatInterface from '../components/ChatInterface'
-import { apiRequest, formatDate } from '../utils'
+import { apiRequest, formatDate, formatDuration } from '../utils'
 import type { Conversation } from '../types'
 
 const Conversaciones = () => {
@@ -12,18 +12,19 @@ const Conversaciones = () => {
   const [showChatInterface, setShowChatInterface] = useState(false)
   const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>()
 
-  useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        const data = await apiRequest('/conversations')
-        setConversations(data.conversations || data || [])
-      } catch (error) {
-        console.error('Error fetching conversations:', error)
-        setConversations([])
-      } finally {
-        setLoading(false)
-      }
+  const fetchConversations = async () => {
+    try {
+      const data = await apiRequest('/conversations')
+      setConversations(data.conversations || data || [])
+    } catch (error) {
+      console.error('Error fetching conversations:', error)
+      setConversations([])
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
     fetchConversations()
   }, [])
 
@@ -44,7 +45,7 @@ const Conversaciones = () => {
   }
 
   const getStatusBadgeClass = (status: string) => {
-    return status === 'Cerrada' ? 'badge-success' : 'badge-danger'
+    return status === 'closed' ? 'badge-light' : 'badge-dark'
   }
 
   const renderStars = (rating: number) => {
@@ -80,6 +81,24 @@ const Conversaciones = () => {
     } catch (error) {
       console.error('Error creating conversation:', error)
     }
+  }
+
+  const handleConversationClosed = () => {
+    // Refresh the conversations list to show updated status and rating
+    fetchConversations()
+    // Close the chat interface
+    setShowChatInterface(false)
+    setSelectedConversationId(undefined)
+  }
+
+  const handleOpenConversation = (conversationId: string) => {
+    setSelectedConversationId(conversationId)
+    setShowChatInterface(true)
+  }
+
+  const handleCloseChatInterface = () => {
+    setShowChatInterface(false)
+    setSelectedConversationId(undefined)
   }
 
   if (loading) {
@@ -177,7 +196,7 @@ const Conversaciones = () => {
                 <tr key={conversation.id}>
                   <td style={{ fontWeight: '600' }}>{conversation.id}</td>
                   <td>{formatDate(conversation.inserted_at)}</td>
-                  <td>{conversation.duration}</td>
+                  <td>{conversation.duration_seconds ? formatDuration(conversation.duration_seconds) : '-'}</td>
                   <td>
                     <span className={`badge ${getStatusBadgeClass(conversation.status)}`}>
                       {conversation.status}
@@ -193,10 +212,7 @@ const Conversaciones = () => {
                     <button 
                       className="btn btn-secondary" 
                       style={{ padding: '8px 12px', fontSize: '12px' }}
-                      onClick={() => {
-                        setSelectedConversationId(conversation.id)
-                        setShowChatInterface(true)
-                      }}
+                      onClick={() => handleOpenConversation(conversation.id)}
                     >
                       Ver detalles
                     </button>
@@ -212,10 +228,8 @@ const Conversaciones = () => {
       {showChatInterface && (
         <ChatInterface
           conversationId={selectedConversationId}
-          onClose={() => {
-            setShowChatInterface(false)
-            setSelectedConversationId(undefined)
-          }}
+          onClose={handleCloseChatInterface}
+          onConversationClosed={handleConversationClosed}
         />
       )}
     </div>
