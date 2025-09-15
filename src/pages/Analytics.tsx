@@ -19,9 +19,22 @@ interface ChannelResponse {
   channels: ChannelData
 }
 
+interface WorstPrompt {
+  prompt_id: string
+  title: string
+  description: string
+  average_rating: number
+  total_conversations: number
+}
+
+interface WorstPromptsResponse {
+  worst_prompts: WorstPrompt[]
+}
+
 const Analytics = () => {
   const [ratingData, setRatingData] = useState<Array<{ rating: string; count: number; fill: string }>>([])
   const [channelData, setChannelData] = useState<Array<{ name: string; value: number; fill: string }>>([])
+  const [worstPrompts, setWorstPrompts] = useState<WorstPrompt[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -70,10 +83,14 @@ const Analytics = () => {
         
         setChannelData(transformedChannelData)
         
+        const worstPromptsResponse: WorstPromptsResponse = await apiRequest('/analytics/worst-prompts')
+        setWorstPrompts(worstPromptsResponse.worst_prompts)
+        
       } catch (error) {
         console.error('Error fetching analytics data:', error)
         setRatingData([])
         setChannelData([])
+        setWorstPrompts([])
       } finally {
         setLoading(false)
       }
@@ -94,23 +111,14 @@ const Analytics = () => {
     }
   }
 
-  // Mock data for worst performing prompts (keep for now)
-  const worstPrompts = [
-    {
-      ranking: 1,
-      prompt: 'Respuesta robótica',
-      averageRating: 2.1,
-      conversations: 45,
-      impact: 'Alto impacto negativo'
-    },
-    {
-      ranking: 2,
-      prompt: 'Formal extremo',
-      averageRating: 2.3,
-      conversations: 32,
-      impact: 'Alto impacto negativo'
-    }
-  ]
+  // Helper function to determine impact level
+  const getImpactLevel = (averageRating: number) => {
+    if (averageRating <= 2.0) return 'Alto impacto negativo'
+    if (averageRating <= 2.5) return 'Impacto negativo'
+    if (averageRating <= 3.0) return 'Impacto moderado'
+    if (averageRating <= 3.5) return 'Impacto positivo'
+    return 'Alto impacto positivo'
+  }
 
   const renderStars = (rating: number) => {
     const fullStars = Math.floor(rating)
@@ -236,13 +244,13 @@ const Analytics = () => {
               <th>Ranking</th>
               <th>Prompt</th>
               <th>Rating Promedio</th>
-              <th>Conversaciones</th>
+              <th>Nº Terminadas</th>
               <th>Impacto</th>
             </tr>
           </thead>
           <tbody>
-            {worstPrompts.map((prompt) => (
-              <tr key={prompt.ranking}>
+            {worstPrompts.map((prompt, index) => (
+              <tr key={prompt.prompt_id}>
                 <td>
                   <div style={{ 
                     display: 'flex', 
@@ -256,22 +264,22 @@ const Analytics = () => {
                     fontSize: '12px',
                     fontWeight: '600'
                   }}>
-                    {prompt.ranking}
+                    {index + 1}
                   </div>
                 </td>
-                <td style={{ fontWeight: '600' }}>{prompt.prompt}</td>
+                <td style={{ fontWeight: '600' }}>{prompt.title}</td>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontWeight: '600', color: '#dc2626' }}>
-                      {prompt.averageRating}
+                    <span style={{ fontWeight: '600', color: '#000000' }}>
+                      {Math.round(prompt.average_rating * 10) / 10}
                     </span>
-                    {renderStars(prompt.averageRating)}
+                    {renderStars(prompt.average_rating)}
                   </div>
                 </td>
-                <td>{prompt.conversations}</td>
+                <td>{prompt.total_conversations}</td>
                 <td>
                   <span className="badge badge-danger">
-                    {prompt.impact}
+                    {getImpactLevel(prompt.average_rating)}
                   </span>
                 </td>
               </tr>

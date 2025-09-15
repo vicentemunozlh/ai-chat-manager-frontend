@@ -150,7 +150,7 @@ const Dashboard = () => {
           Volumen de Conversaciones
         </h3>
         <p style={{ marginBottom: '24px', color: '#64748b', fontSize: '14px' }}>
-          Conversaciones por día en la última semana
+          Conversaciones por día en los últimos 7 días
         </p>
         
         <div style={{ height: '400px', width: '100%' }}>

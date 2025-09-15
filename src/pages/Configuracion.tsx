@@ -250,8 +250,14 @@ const Configuracion = () => {
                   </button>
                   <button 
                     className="btn btn-secondary" 
-                    style={{ padding: '6px 8px', color: '#dc2626' }}
-                    onClick={() => handleDeletePrompt(prompt.id)}
+                    style={{ 
+                      padding: '6px 8px', 
+                      color: prompt.active ? '#9ca3af' : '#dc2626',
+                      cursor: prompt.active ? 'not-allowed' : 'pointer',
+                      opacity: prompt.active ? 0.5 : 1
+                    }}
+                    onClick={() => !prompt.active && handleDeletePrompt(prompt.id)}
+                    disabled={prompt.active}
                   >
                     <Trash2 size={14} />
                   </button>

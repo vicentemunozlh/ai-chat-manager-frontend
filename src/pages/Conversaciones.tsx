@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Filter, Calendar, Star } from 'lucide-react'
+import { Plus, Filter, Star } from 'lucide-react'
 import ChatInterface from '../components/ChatInterface'
 import { apiRequest, formatDate, formatDuration } from '../utils'
 import type { Conversation } from '../types'
@@ -137,8 +137,8 @@ const Conversaciones = () => {
               onChange={(e) => setSelectedStatus(e.target.value)}
             >
               <option value="Todos">Todos</option>
-              <option value="Cerrada">Cerrada</option>
-              <option value="Abierta">Abierta</option>
+              <option value="closed">Cerrada</option>
+              <option value="open">Abierta</option>
             </select>
           </div>
           
@@ -156,14 +156,6 @@ const Conversaciones = () => {
               <option value="4">4 estrellas</option>
               <option value="5">5 estrellas</option>
             </select>
-          </div>
-          
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Rango de fechas</label>
-            <button className="form-input" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', cursor: 'pointer' }}>
-              <Calendar size={16} color="#64748b" />
-              Seleccionar fechas
-            </button>
           </div>
         </div>
       </div>
