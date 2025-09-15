@@ -11,32 +11,75 @@ interface RatingResponse {
   ratings: RatingData
 }
 
+interface ChannelData {
+  [key: string]: number
+}
+
+interface ChannelResponse {
+  channels: ChannelData
+}
+
 const Analytics = () => {
   const [ratingData, setRatingData] = useState<Array<{ rating: string; count: number; fill: string }>>([])
+  const [channelData, setChannelData] = useState<Array<{ name: string; value: number; fill: string }>>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchRatingData = async () => {
+    const fetchAnalyticsData = async () => {
       try {
         setLoading(true)
-        const response: RatingResponse = await apiRequest('/analytics/ratings')
         
-        const transformedData = Object.entries(response.ratings).map(([rating, count]) => ({
+        // Fetch rating data
+        const ratingResponse: RatingResponse = await apiRequest('/analytics/ratings')
+        const transformedRatingData = Object.entries(ratingResponse.ratings).map(([rating, count]) => ({
           rating: `${rating}⭐`,
           count: count,
           fill: getRatingColor(parseInt(rating))
         }))
+        setRatingData(transformedRatingData)
         
-        setRatingData(transformedData)
+        // Fetch channel data
+        const channelResponse: ChannelResponse = await apiRequest('/analytics/channels')
+        
+        // Hardcoded values for WhatsApp and Instagram
+        const whatsappConversations = 5
+        const instagramConversations = 7
+        const webConversations = channelResponse.channels.web || 0
+        
+        // Calculate total conversations
+        const totalConversations = webConversations + whatsappConversations + instagramConversations
+        
+        // Calculate percentages and create channel data
+        const transformedChannelData = [
+          { 
+            name: 'Web', 
+            value: Math.round((webConversations / totalConversations) * 100), 
+            fill: '#3b82f6' 
+          },
+          { 
+            name: 'WhatsApp', 
+            value: Math.round((whatsappConversations / totalConversations) * 100), 
+            fill: '#22c55e' 
+          },
+          { 
+            name: 'Instagram', 
+            value: Math.round((instagramConversations / totalConversations) * 100), 
+            fill: '#ec4899' 
+          }
+        ]
+        
+        setChannelData(transformedChannelData)
+        
       } catch (error) {
-        console.error('Error fetching rating data:', error)
+        console.error('Error fetching analytics data:', error)
         setRatingData([])
+        setChannelData([])
       } finally {
         setLoading(false)
       }
     }
 
-    fetchRatingData()
+    fetchAnalyticsData()
   }, [])
 
   // Helper function to get color for each rating
@@ -50,13 +93,6 @@ const Analytics = () => {
       default: return '#64748b'
     }
   }
-
-  // Mock data for channel distribution (keep for now)
-  const channelData = [
-    { name: 'Web', value: 45, fill: '#3b82f6' },
-    { name: 'WhatsApp', value: 35, fill: '#22c55e' },
-    { name: 'Instagram', value: 20, fill: '#ec4899' }
-  ]
 
   // Mock data for worst performing prompts (keep for now)
   const worstPrompts = [
