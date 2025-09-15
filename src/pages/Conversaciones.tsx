@@ -1,57 +1,38 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Filter, Calendar, Star } from 'lucide-react'
 import ChatInterface from '../components/ChatInterface'
-
-interface Conversation {
-  id: string
-  startDate: string
-  duration: string
-  status: 'Cerrada' | 'Abierta'
-  channel: 'Web' | 'WhatsApp' | 'Instagram'
-  rating: number
-}
+import { apiRequest } from '../utils'
+import type { Conversation } from '../types'
 
 const Conversaciones = () => {
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [loading, setLoading] = useState(true)
   const [selectedStatus, setSelectedStatus] = useState('Todos')
   const [selectedRating, setSelectedRating] = useState('Todos')
   const [showChatInterface, setShowChatInterface] = useState(false)
   const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>()
 
-  // Mock conversations data
-  const conversations: Conversation[] = [
-    {
-      id: 'CONV-001',
-      startDate: '2024-01-15 14:30',
-      duration: '5m 23s',
-      status: 'Cerrada',
-      channel: 'Web',
-      rating: 5
-    },
-    {
-      id: 'CONV-002',
-      startDate: '2024-01-15 13:45',
-      duration: '3m 12s',
-      status: 'Cerrada',
-      channel: 'WhatsApp',
-      rating: 3
-    },
-    {
-      id: 'CONV-003',
-      startDate: '2024-01-15 12:20',
-      duration: '7m 45s',
-      status: 'Abierta',
-      channel: 'Instagram',
-      rating: 0
-    },
-    {
-      id: 'CONV-004',
-      startDate: '2024-01-15 11:10',
-      duration: '2m 56s',
-      status: 'Cerrada',
-      channel: 'Web',
-      rating: 3
+  useEffect(() => {
+    const fetchConversations = async () => {
+      try {
+        const data = await apiRequest('/conversations')
+        setConversations(data.conversations || data || [])
+      } catch (error) {
+        console.error('Error fetching conversations:', error)
+        setConversations([])
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+    fetchConversations()
+  }, [])
+
+  // Filter conversations based on selected filters
+  const filteredConversations = conversations.filter(conversation => {
+    const statusMatch = selectedStatus === 'Todos' || conversation.status === selectedStatus
+    const ratingMatch = selectedRating === 'Todos' || conversation.rating >= parseInt(selectedRating)
+    return statusMatch && ratingMatch
+  })
 
   const getChannelBadgeClass = (channel: string) => {
     switch (channel) {
@@ -83,6 +64,28 @@ const Conversaciones = () => {
     )
   }
 
+  const handleCreateNewConversation = async () => {
+    try {
+      const response = await apiRequest('/conversations', {
+        method: 'POST',
+        body: JSON.stringify({})
+      })
+      
+      // Set the new conversation ID and open chat
+      setSelectedConversationId(response.conversation.id)
+      setShowChatInterface(true)
+      
+      // Add the new conversation to the list
+      setConversations(prev => [response.conversation, ...prev])
+    } catch (error) {
+      console.error('Error creating conversation:', error)
+    }
+  }
+
+  if (loading) {
+    return <div>Loading...</div>
+  }
+
   return (
     <div>
       <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -92,10 +95,7 @@ const Conversaciones = () => {
         </div>
         <button 
           className="btn btn-primary"
-          onClick={() => {
-            setSelectedConversationId(undefined)
-            setShowChatInterface(true)
-          }}
+          onClick={handleCreateNewConversation}
         >
           <Plus size={16} />
           Crear nueva conversación
@@ -152,54 +152,60 @@ const Conversaciones = () => {
       {/* Conversations List */}
       <div className="card">
         <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '24px' }}>
-          Lista de Conversaciones
+          Lista de Conversaciones ({filteredConversations.length})
         </h3>
         
-        <table className="table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Fecha de inicio</th>
-              <th>Duración</th>
-              <th>Estado</th>
-              <th>Canal</th>
-              <th>Rating</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {conversations.map((conversation) => (
-              <tr key={conversation.id}>
-                <td style={{ fontWeight: '600' }}>{conversation.id}</td>
-                <td>{conversation.startDate}</td>
-                <td>{conversation.duration}</td>
-                <td>
-                  <span className={`badge ${getStatusBadgeClass(conversation.status)}`}>
-                    {conversation.status}
-                  </span>
-                </td>
-                <td>
-                  <span className={`badge ${getChannelBadgeClass(conversation.channel)}`}>
-                    {conversation.channel}
-                  </span>
-                </td>
-                <td>{renderStars(conversation.rating)}</td>
-                <td>
-                  <button 
-                    className="btn btn-secondary" 
-                    style={{ padding: '8px 12px', fontSize: '12px' }}
-                    onClick={() => {
-                      setSelectedConversationId(conversation.id)
-                      setShowChatInterface(true)
-                    }}
-                  >
-                    Ver detalles
-                  </button>
-                </td>
+        {filteredConversations.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+            No hay conversaciones que coincidan con los filtros seleccionados
+          </div>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Fecha de inicio</th>
+                <th>Duración</th>
+                <th>Estado</th>
+                <th>Canal</th>
+                <th>Rating</th>
+                <th>Acciones</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredConversations.map((conversation) => (
+                <tr key={conversation.id}>
+                  <td style={{ fontWeight: '600' }}>{conversation.id}</td>
+                  <td>{conversation.startDate}</td>
+                  <td>{conversation.duration}</td>
+                  <td>
+                    <span className={`badge ${getStatusBadgeClass(conversation.status)}`}>
+                      {conversation.status}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`badge ${getChannelBadgeClass(conversation.channel)}`}>
+                      {conversation.channel}
+                    </span>
+                  </td>
+                  <td>{renderStars(conversation.rating)}</td>
+                  <td>
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ padding: '8px 12px', fontSize: '12px' }}
+                      onClick={() => {
+                        setSelectedConversationId(conversation.id)
+                        setShowChatInterface(true)
+                      }}
+                    >
+                      Ver detalles
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* Chat Interface Modal */}

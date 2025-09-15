@@ -18,7 +18,7 @@ export interface Conversation {
 export interface Message {
   id: string;
   content: string;
-  sender: 'user' | 'ai';
+  role: 'user' | 'assistant';
   timestamp: string;
   conversationId: string;
 }

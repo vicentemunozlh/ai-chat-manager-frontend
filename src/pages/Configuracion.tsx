@@ -1,82 +1,111 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { User, Plus, Edit, Trash2 } from 'lucide-react'
+import { useAuth } from '../hooks/useAuth'
+import { apiRequest } from '../utils'
 
 interface Prompt {
   id: string
-  name: string
+  title: string
   description: string
-  isActive: boolean
+  active: boolean
+  inserted_at: string
+  updated_at: string
+}
+
+interface Integration {
+  id: string
+  endpoint?: string
+  default_model?: string
+  lastUpdate?: string
+  updated_at?: string
 }
 
 const Configuracion = () => {
+  const { user } = useAuth()
+  const [prompts, setPrompts] = useState<Prompt[]>([])
+  const [promptsLoading, setPromptsLoading] = useState(true)
+  const [integrationLoading, setIntegrationLoading] = useState(true)
   const [newPromptName, setNewPromptName] = useState('')
   const [newPromptDescription, setNewPromptDescription] = useState('')
+  const [integration, setIntegration] = useState<Integration | null>(null)
 
-  // Mock user data
-  const user = {
-    name: 'Ana García',
-    email: 'ana.garcia@empresa.com',
-    role: 'Customer Success Manager'
-  }
-
-  // Mock prompts data
-  const [prompts, setPrompts] = useState<Prompt[]>([
-    {
-      id: '1',
-      name: 'Joven simpático',
-      description: 'Conversación casual y amigable',
-      isActive: false
-    },
-    {
-      id: '2',
-      name: 'Formal profesional',
-      description: 'Respuestas estructuradas y formales',
-      isActive: true
-    },
-    {
-      id: '3',
-      name: 'Empático',
-      description: 'Enfoque en comprensión emocional',
-      isActive: false
-    },
-    {
-      id: '4',
-      name: 'Técnico especializado',
-      description: 'Respuestas detalladas técnicas',
-      isActive: false
-    }
-  ])
-
-  // Mock API configuration
-  const apiConfig = {
-    endpoint: 'https://api.openai.com/v1/chat/completions',
-    model: 'gpt-4',
-    lastUpdate: '2024-01-15 10:30'
-  }
-
-  const handleAddPrompt = () => {
-    if (newPromptName.trim() && newPromptDescription.trim()) {
-      const newPrompt: Prompt = {
-        id: Date.now().toString(),
-        name: newPromptName,
-        description: newPromptDescription,
-        isActive: false
+  // Fetch prompts from API
+  useEffect(() => {
+    const fetchPrompts = async () => {
+      try {
+        const data = await apiRequest('/prompts')
+        setPrompts(data.prompts || [])
+      } catch (error) {
+        console.error('Error fetching prompts:', error)
+      } finally {
+        setPromptsLoading(false)
       }
-      setPrompts([...prompts, newPrompt])
-      setNewPromptName('')
-      setNewPromptDescription('')
+    }
+    fetchPrompts()
+  }, [])
+
+  // Fetch integration from API
+  useEffect(() => {
+    const fetchIntegration = async () => {
+      try {
+        const data = await apiRequest('/integrations')
+        setIntegration(data.integration)
+      } catch (error) {
+        console.error('Error fetching integration:', error)
+      } finally {
+        setIntegrationLoading(false)
+      }
+    }
+    fetchIntegration()
+  }, [])
+
+  const handleAddPrompt = async () => {
+    if (newPromptName.trim() && newPromptDescription.trim()) {
+      try {
+        const response = await apiRequest('/prompts', {
+          method: 'POST',
+          body: JSON.stringify({
+            title: newPromptName,
+            description: newPromptDescription
+          })
+        })
+        
+        setPrompts([...prompts, response.prompt])
+        setNewPromptName('')
+        setNewPromptDescription('')
+      } catch (error) {
+        console.error('Error adding prompt:', error)
+      }
     }
   }
 
-  const handleSetActive = (promptId: string) => {
-    setPrompts(prompts.map(prompt => ({
-      ...prompt,
-      isActive: prompt.id === promptId
-    })))
+  const handleSetActive = async (promptId: string) => {
+    try {
+      await apiRequest(`/prompts/${promptId}/activate`, {
+        method: 'PUT'
+      })
+      setPrompts(prompts.map(prompt => ({
+        ...prompt,
+        active: prompt.id === promptId
+      })))
+    } catch (error) {
+      console.error('Error setting active prompt:', error)
+    }
   }
 
-  const handleDeletePrompt = (promptId: string) => {
-    setPrompts(prompts.filter(prompt => prompt.id !== promptId))
+  const handleDeletePrompt = async (promptId: string) => {
+    try {
+      await apiRequest(`/prompts/${promptId}`, {
+        method: 'DELETE'
+      })
+      setPrompts(prompts.filter(prompt => prompt.id !== promptId))
+    } catch (error) {
+      console.error('Error deleting prompt:', error)
+    }
+  }
+
+  if (promptsLoading || integrationLoading) {
+    return <div>Loading...</div>
   }
 
   return (
@@ -107,13 +136,13 @@ const Configuracion = () => {
           
           <div style={{ flex: 1 }}>
             <h4 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '4px' }}>
-              {user.name}
+              {user?.name}
             </h4>
             <p style={{ color: '#64748b', marginBottom: '8px' }}>
-              {user.email}
+              {user?.email}
             </p>
             <span className="badge badge-info">
-              {user.role}
+              {user?.role}
             </span>
           </div>
         </div>
@@ -134,7 +163,7 @@ const Configuracion = () => {
             <input 
               type="text" 
               className="form-input" 
-              value={apiConfig.endpoint}
+              value={integration?.endpoint || 'N/A'}
               readOnly
               style={{ backgroundColor: '#f8fafc', color: '#64748b' }}
             />
@@ -145,7 +174,7 @@ const Configuracion = () => {
             <input 
               type="text" 
               className="form-input" 
-              value={apiConfig.model}
+              value={integration?.default_model || 'N/A'}
               readOnly
               style={{ backgroundColor: '#f8fafc', color: '#64748b' }}
             />
@@ -157,7 +186,7 @@ const Configuracion = () => {
           <input 
             type="text" 
             className="form-input" 
-            value={apiConfig.lastUpdate}
+            value={integration?.updated_at || 'N/A'}
             readOnly
             style={{ backgroundColor: '#f8fafc', color: '#64748b' }}
           />
@@ -188,23 +217,23 @@ const Configuracion = () => {
                   alignItems: 'center',
                   gap: '16px',
                   padding: '16px',
-                  border: prompt.isActive ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                  border: prompt.active ? '2px solid #3b82f6' : '1px solid #e5e7eb',
                   borderRadius: '8px',
-                  backgroundColor: prompt.isActive ? '#eff6ff' : 'white'
+                  backgroundColor: prompt.active ? '#eff6ff' : 'white'
                 }}
               >
                 <input
                   type="radio"
                   name="activePrompt"
-                  checked={prompt.isActive}
+                  checked={prompt.active}
                   onChange={() => handleSetActive(prompt.id)}
                   style={{ width: '16px', height: '16px' }}
                 />
                 
                 <div style={{ flex: 1 }}>
                   <h5 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>
-                    {prompt.name}
-                    {prompt.isActive && (
+                    {prompt.title}
+                    {prompt.active && (
                       <span className="badge badge-info" style={{ marginLeft: '8px', fontSize: '10px' }}>
                         Activo
                       </span>

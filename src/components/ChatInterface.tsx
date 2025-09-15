@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { Send, User, Bot } from 'lucide-react'
 import type { Message } from '../types'
 import { usePhoenixChannel } from '../hooks/useWebSocket'
+import { useAuth } from '../hooks/useAuth'
+import { apiRequest } from '../utils'
 
 interface ChatInterfaceProps {
   conversationId?: string
@@ -9,20 +11,48 @@ interface ChatInterfaceProps {
 }
 
 const ChatInterface = ({ conversationId, onClose }: ChatInterfaceProps) => {
+  const { accessToken } = useAuth()
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  // Fetch chat history when conversationId changes
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (!conversationId) return
+      
+      try {
+        const data = await apiRequest(`/conversations/${conversationId}`)
+        
+        // Map backend message format to frontend format
+        const formattedMessages = (data.messages || []).map((msg: { id: string; content: string; role: string; inserted_at: string }) => ({
+          id: msg.id,
+          content: msg.content,
+          role: msg.role,
+          timestamp: msg.inserted_at, // Map inserted_at to timestamp
+          conversationId: conversationId
+        }))
+        
+        setMessages(formattedMessages)
+      } catch (error) {
+        console.error('Error fetching messages:', error)
+        setMessages([])
+      }
+    }
+    
+    fetchMessages()
+  }, [conversationId])
+
   // Phoenix Channel connection for real-time chat
   const { isConnected, sendMessage } = usePhoenixChannel({
     conversationId,
-    userToken: 'your-user-token', // Replace with actual token
+    userToken: accessToken || '',
     onMessage: (payload) => {
       const newMessage: Message = {
-        id: Date.now().toString(),
+        id: payload.id as string || Date.now().toString(),
         content: payload.content as string,
-        sender: payload.sender as 'user' | 'ai',
+        role: payload.role as 'user' | 'assistant',
         timestamp: payload.timestamp as string || new Date().toISOString(),
         conversationId: conversationId || 'new'
       }
@@ -54,7 +84,7 @@ const ChatInterface = ({ conversationId, onClose }: ChatInterfaceProps) => {
     const userMessage: Message = {
       id: Date.now().toString(),
       content: inputMessage,
-      sender: 'user',
+      role: 'user',
       timestamp: new Date().toISOString(),
       conversationId: conversationId || 'new'
     }
@@ -64,28 +94,14 @@ const ChatInterface = ({ conversationId, onClose }: ChatInterfaceProps) => {
     setInputMessage('')
     setIsLoading(true)
 
-    // Send message via Phoenix Channel
     const sent = sendMessage(messageContent)
+    console.log('Sent message:', sent)
     
     if (!sent) {
       console.error('Failed to send message - not connected')
       setIsLoading(false)
       return
     }
-
-    // Note: AI response will come through the Phoenix channel 'new_message' event
-    // Remove the mock response when backend is connected
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: `Esta es una respuesta simulada a: "${messageContent}". En la implementación real, esta respuesta vendría del backend Phoenix con IA.`,
-        sender: 'ai',
-        timestamp: new Date().toISOString(),
-        conversationId: conversationId || 'new'
-      }
-      setMessages(prev => [...prev, aiMessage])
-      setIsLoading(false)
-    }, 1500)
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -180,11 +196,11 @@ const ChatInterface = ({ conversationId, onClose }: ChatInterfaceProps) => {
                 display: 'flex',
                 alignItems: 'flex-start',
                 gap: '12px',
-                alignSelf: message.sender === 'user' ? 'flex-end' : 'flex-start',
+                alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
                 maxWidth: '70%'
               }}
             >
-              {message.sender === 'ai' && (
+              {message.role === 'assistant' && (
                 <div style={{
                   width: '32px',
                   height: '32px',
@@ -200,11 +216,11 @@ const ChatInterface = ({ conversationId, onClose }: ChatInterfaceProps) => {
               )}
               
               <div style={{
-                backgroundColor: message.sender === 'user' ? '#3b82f6' : '#f1f5f9',
-                color: message.sender === 'user' ? 'white' : '#1e293b',
+                backgroundColor: message.role === 'user' ? '#3b82f6' : '#f1f5f9',
+                color: message.role === 'user' ? 'white' : '#1e293b',
                 padding: '12px 16px',
                 borderRadius: '12px',
-                order: message.sender === 'user' ? -1 : 0
+                order: message.role === 'user' ? -1 : 0
               }}>
                 <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.5' }}>
                   {message.content}
@@ -218,7 +234,7 @@ const ChatInterface = ({ conversationId, onClose }: ChatInterfaceProps) => {
                 </p>
               </div>
               
-              {message.sender === 'user' && (
+              {message.role === 'user' && (
                 <div style={{
                   width: '32px',
                   height: '32px',

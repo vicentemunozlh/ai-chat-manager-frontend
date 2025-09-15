@@ -25,78 +25,109 @@ export const usePhoenixChannel = ({
 
   const socket = useRef<Socket | null>(null);
   const channel = useRef<Channel | null>(null);
+  const isConnecting = useRef(false);
+
+  const joinChannel = useCallback(
+    (convId: string) => {
+      if (!socket.current) return;
+
+      channel.current = socket.current.channel(`chat:${convId}`, {});
+
+      channel.current
+        .join()
+        .receive('ok', () => {
+          console.log('Joined channel successfully');
+        })
+        .receive('error', (resp) => {
+          console.error('Unable to join channel', resp);
+          onError?.(resp);
+        });
+
+      // Listen for AI responses broadcasted from the backend
+      channel.current.on('ai_response', (payload) => {
+        const response = payload as {
+          message: { content: string; inserted_at: string; id: string };
+        };
+        const aiMessage = response.message;
+        onMessage?.({
+          content: aiMessage.content,
+          role: 'assistant',
+          timestamp: aiMessage.inserted_at,
+          id: aiMessage.id,
+        });
+      });
+
+      channel.current.on('user_typing', (payload) => {
+        console.log('User typing:', payload);
+      });
+    },
+    [onMessage, onError]
+  );
 
   const connect = useCallback(() => {
+    if (isConnecting.current || socket.current) return;
+
     try {
+      isConnecting.current = true;
       setConnectionStatus('connecting');
 
-      // Create Phoenix Socket
-      socket.current = new Socket('/socket', {
+      const wsUrl = 'ws://localhost:4000/socket';
+
+      socket.current = new Socket(wsUrl, {
         params: { token: userToken || '' },
       });
 
       socket.current.onOpen(() => {
+        console.log('Socket opened, setting connected to true');
         setIsConnected(true);
         setConnectionStatus('connected');
+        isConnecting.current = false;
         onConnect?.();
       });
 
       socket.current.onClose(() => {
         setIsConnected(false);
         setConnectionStatus('disconnected');
+        isConnecting.current = false;
         onDisconnect?.();
       });
 
       socket.current.onError((error) => {
         setConnectionStatus('error');
+        isConnecting.current = false;
         onError?.(error);
       });
 
-      // Connect to socket
       socket.current.connect();
 
-      // Join conversation channel if conversationId provided
       if (conversationId) {
         joinChannel(conversationId);
       }
     } catch (error) {
       setConnectionStatus('error');
+      isConnecting.current = false;
       console.error('Phoenix socket connection error:', error);
       onError?.(error);
     }
-  }, [conversationId, userToken, onConnect, onDisconnect, onError, onMessage]);
-
-  const joinChannel = (convId: string) => {
-    if (!socket.current) return;
-
-    channel.current = socket.current.channel(`chat:${convId}`, {});
-
-    channel.current
-      .join()
-      .receive('ok', () => {
-        console.log('Joined channel successfully');
-      })
-      .receive('error', (resp) => {
-        console.error('Unable to join channel', resp);
-        onError?.(resp);
-      });
-
-    // Listen for new messages
-    channel.current.on('new_message', (payload) => {
-      onMessage?.(payload as Record<string, unknown>);
-    });
-
-    // Listen for typing indicators
-    channel.current.on('user_typing', (payload) => {
-      // Handle typing indicator
-      console.log('User typing:', payload);
-    });
-  };
+  }, [conversationId, userToken, joinChannel]);
 
   const sendMessage = (content: string) => {
+    console.log(
+      'Attempting to send message, isConnected:',
+      isConnected,
+      'channel:',
+      !!channel.current
+    );
+
+    // If no channel exists, create a default one for new conversations
+    if (!channel.current && isConnected && socket.current) {
+      channel.current = socket.current.channel('chat:new', {});
+      channel.current.join();
+    }
+
     if (channel.current && isConnected) {
       channel.current
-        .push('send_message', { content })
+        .push('send_message', { content, role: 'user' })
         .receive('ok', (resp) => {
           console.log('Message sent successfully', resp);
         })
@@ -121,7 +152,9 @@ export const usePhoenixChannel = ({
     }
     if (socket.current) {
       socket.current.disconnect();
+      socket.current = null;
     }
+    isConnecting.current = false;
   };
 
   useEffect(() => {
@@ -130,7 +163,7 @@ export const usePhoenixChannel = ({
     return () => {
       disconnect();
     };
-  }, [connect]);
+  }, [conversationId, userToken]);
 
   return {
     isConnected,
@@ -141,13 +174,4 @@ export const usePhoenixChannel = ({
     reconnect: connect,
     joinChannel,
   };
-};
-
-// Mock WebSocket URL for development
-export const getWebSocketUrl = () => {
-  // In production, this would be your Phoenix WebSocket endpoint
-  // return 'ws://localhost:4000/socket/websocket'
-
-  // For development, we'll return a mock URL
-  return 'ws://localhost:4000/socket/websocket';
 };
