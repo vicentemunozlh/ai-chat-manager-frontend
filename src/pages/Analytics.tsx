@@ -1,24 +1,64 @@
+import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import { Star } from 'lucide-react'
+import { apiRequest } from '../utils'
+
+interface RatingData {
+  [key: string]: number
+}
+
+interface RatingResponse {
+  ratings: RatingData
+}
 
 const Analytics = () => {
-  // Mock data for rating distribution
-  const ratingData = [
-    { rating: '1⭐', count: 15, fill: '#ef4444' },
-    { rating: '2⭐', count: 25, fill: '#f97316' },
-    { rating: '3⭐', count: 45, fill: '#eab308' },
-    { rating: '4⭐', count: 85, fill: '#22c55e' },
-    { rating: '5⭐', count: 160, fill: '#16a34a' }
-  ]
+  const [ratingData, setRatingData] = useState<Array<{ rating: string; count: number; fill: string }>>([])
+  const [loading, setLoading] = useState(true)
 
-  // Mock data for channel distribution
+  useEffect(() => {
+    const fetchRatingData = async () => {
+      try {
+        setLoading(true)
+        const response: RatingResponse = await apiRequest('/analytics/ratings')
+        
+        const transformedData = Object.entries(response.ratings).map(([rating, count]) => ({
+          rating: `${rating}⭐`,
+          count: count,
+          fill: getRatingColor(parseInt(rating))
+        }))
+        
+        setRatingData(transformedData)
+      } catch (error) {
+        console.error('Error fetching rating data:', error)
+        setRatingData([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchRatingData()
+  }, [])
+
+  // Helper function to get color for each rating
+  const getRatingColor = (rating: number) => {
+    switch (rating) {
+      case 1: return '#ef4444'
+      case 2: return '#f97316'
+      case 3: return '#eab308'
+      case 4: return '#22c55e'
+      case 5: return '#16a34a'
+      default: return '#64748b'
+    }
+  }
+
+  // Mock data for channel distribution (keep for now)
   const channelData = [
     { name: 'Web', value: 45, fill: '#3b82f6' },
     { name: 'WhatsApp', value: 35, fill: '#22c55e' },
     { name: 'Instagram', value: 20, fill: '#ec4899' }
   ]
 
-  // Mock data for worst performing prompts
+  // Mock data for worst performing prompts (keep for now)
   const worstPrompts = [
     {
       ranking: 1,
@@ -38,7 +78,6 @@ const Analytics = () => {
 
   const renderStars = (rating: number) => {
     const fullStars = Math.floor(rating)
-    const hasHalfStar = rating % 1 !== 0
     
     return (
       <div className="rating">
@@ -50,6 +89,20 @@ const Analytics = () => {
             fill={star <= fullStars ? 'currentColor' : 'none'}
           />
         ))}
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div>
+        <header className="page-header">
+          <h1 className="page-title">Analytics</h1>
+          <p className="page-subtitle">Análisis detallado del rendimiento de las conversaciones</p>
+        </header>
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          Cargando datos de analytics...
+        </div>
       </div>
     )
   }
@@ -84,7 +137,7 @@ const Analytics = () => {
                 <YAxis 
                   tick={{ fontSize: 12, fill: '#64748b' }}
                   axisLine={{ stroke: '#e2e8f0' }}
-                  domain={[0, 180]}
+                  domain={[0, 'dataMax + 5']}
                 />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -122,7 +175,7 @@ const Analytics = () => {
                   height={36}
                   formatter={(value, entry) => (
                     <span style={{ color: entry.color, fontSize: '14px', fontWeight: '500' }}>
-                      {value}: {entry.payload.value}%
+                      {value}: {entry.payload?.value}%
                     </span>
                   )}
                 />
