@@ -1,48 +1,125 @@
+import { useState, useEffect } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts'
+import { apiRequest } from '../utils'
+
+interface DashboardStats {
+  today_conversations: number
+  yesterday_conversations: number
+  last_week_high_rating_percentage: number
+  high_rating_percentage: number
+  average_ai_response_time: number
+  last_week_average_ai_response_time: number
+  this_week_conversations: number
+  last_week_conversations: number
+  conversations_per_day_this_week: Record<string, number>
+}
+
+interface DashboardResponse {
+  stats: DashboardStats
+}
+
+interface ChartData {
+  day: string
+  conversations: number
+}
 
 const Dashboard = () => {
-  // Mock data based on your design
-  const stats = [
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [chartData, setChartData] = useState<ChartData[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true)
+        
+        // Fetch all dashboard data from single endpoint
+        const response: DashboardResponse = await apiRequest('/stats')
+        setStats(response.stats)
+        
+        // Transform the conversations_per_day_this_week into chart data
+        const chartData = Object.entries(response.stats.conversations_per_day_this_week).map(([date, count]) => {
+          const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+          const dayIndex = new Date(date).getDay()
+          return {
+            day: dayNames[dayIndex],
+            conversations: count
+          }
+        })
+        setChartData(chartData)
+        
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error)
+        setStats(null)
+        setChartData([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDashboardData()
+  }, [])
+
+  // Helper function to calculate percentage change
+  const calculatePercentageChange = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? '+100%' : '0%'
+    const change = ((current - previous) / previous) * 100
+    const sign = change >= 0 ? '+' : ''
+    return `${sign}${change.toFixed(1)}%`
+  }
+
+  // Helper function to calculate time change
+  const calculateTimeChange = (current: number, previous: number) => {
+    const change = (current - previous) / 1000 // Convert to seconds
+    const sign = change >= 0 ? '+' : ''
+    return `${sign}${change.toFixed(1)}s`
+  }
+
+  // Format stats for display
+  const formattedStats = stats ? [
     {
       title: 'Conversaciones Hoy',
-      value: '127',
+      value: stats.today_conversations.toString(),
       description: 'Total de conversaciones iniciadas',
-      change: '+12% vs ayer',
-      changeType: 'positive'
+      change: calculatePercentageChange(stats.today_conversations, stats.yesterday_conversations) + ' vs ayer',
+      changeType: stats.this_week_conversations >= stats.last_week_conversations ? 'positive' as const : 'negative' as const
     },
     {
       title: 'Satisfacción',
-      value: '94.2%',
+      value: `${stats.high_rating_percentage.toFixed(1)}%`,
       description: 'Conversaciones con rating ≥4',
-      change: '+2.1% vs semana pasada',
-      changeType: 'positive'
+      change: calculatePercentageChange(stats.high_rating_percentage, stats.last_week_high_rating_percentage) + ' vs 7 días previos',
+      changeType: stats.high_rating_percentage >= stats.last_week_high_rating_percentage ? 'positive' as const : 'negative' as const
     },
     {
       title: 'Tiempo Respuesta',
-      value: '1.3s',
+      value: `${(stats.average_ai_response_time / 1000).toFixed(1)}s`,
       description: 'Promedio de respuesta de IA',
-      change: '-0.2s mejora',
-      changeType: 'positive'
+      change: calculateTimeChange(stats.average_ai_response_time, stats.last_week_average_ai_response_time) + ' vs 7 días previos',
+      changeType: stats.average_ai_response_time <= stats.last_week_average_ai_response_time ? 'positive' as const : 'negative' as const
     },
     {
-      title: 'Conversaciones Semana',
-      value: '1,247',
-      description: 'Total semanal',
-      change: 'Estable',
-      changeType: 'neutral'
+      title: 'Conversaciones Últimos 7 Días',
+      value: stats.this_week_conversations.toLocaleString(),
+      description: 'Total',
+      change: calculatePercentageChange(stats.this_week_conversations, stats.last_week_conversations) + ' vs 7 días previos',
+      changeType: stats.this_week_conversations >= stats.last_week_conversations ? 'positive' as const : 'neutral' as const
     }
-  ]
+  ] : []
 
-  // Mock chart data for conversations volume
-  const chartData = [
-    { day: 'Lun', conversations: 45 },
-    { day: 'Mar', conversations: 52 },
-    { day: 'Mié', conversations: 48 },
-    { day: 'Jue', conversations: 61 },
-    { day: 'Vie', conversations: 55 },
-    { day: 'Sáb', conversations: 38 },
-    { day: 'Dom', conversations: 42 }
-  ]
+  if (loading) {
+    return (
+      <div>
+        <header className="page-header">
+          <h1 className="page-title">Resumen</h1>
+          <p className="page-subtitle">Vista general del rendimiento de las conversaciones con IA</p>
+        </header>
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          Cargando datos del dashboard...
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -53,7 +130,7 @@ const Dashboard = () => {
 
       {/* KPI Cards */}
       <div className="stats-grid">
-        {stats.map((stat, index) => (
+        {formattedStats.map((stat, index) => (
           <div key={index} className="stat-card">
             <div className="stat-header">
               <span className="stat-title">{stat.title}</span>
@@ -88,7 +165,7 @@ const Dashboard = () => {
               <YAxis 
                 tick={{ fontSize: 12, fill: '#64748b' }}
                 axisLine={{ stroke: '#e2e8f0' }}
-                domain={[0, 80]}
+                domain={[0, 'dataMax + 1']}
               />
               <Line 
                 type="monotone" 
