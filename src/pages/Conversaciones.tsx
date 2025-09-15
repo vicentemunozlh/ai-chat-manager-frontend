@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Filter, Calendar, Star } from 'lucide-react'
 import ChatInterface from '../components/ChatInterface'
-import { apiRequest } from '../utils'
+import { apiRequest, formatDate } from '../utils'
 import type { Conversation } from '../types'
 
 const Conversaciones = () => {
@@ -176,7 +176,7 @@ const Conversaciones = () => {
               {filteredConversations.map((conversation) => (
                 <tr key={conversation.id}>
                   <td style={{ fontWeight: '600' }}>{conversation.id}</td>
-                  <td>{conversation.startDate}</td>
+                  <td>{formatDate(conversation.inserted_at)}</td>
                   <td>{conversation.duration}</td>
                   <td>
                     <span className={`badge ${getStatusBadgeClass(conversation.status)}`}>
