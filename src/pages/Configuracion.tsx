@@ -18,6 +18,7 @@ interface Integration {
   default_model?: string
   lastUpdate?: string
   updated_at?: string
+  provider?: string
 }
 
 const Configuracion = () => {
@@ -28,6 +29,8 @@ const Configuracion = () => {
   const [newPromptName, setNewPromptName] = useState('')
   const [newPromptDescription, setNewPromptDescription] = useState('')
   const [integration, setIntegration] = useState<Integration | null>(null)
+  const [activating, setActivating] = useState(false)
+  const [deactivating, setDeactivating] = useState(false)
 
   // Fetch prompts from API
   useEffect(() => {
@@ -104,6 +107,41 @@ const Configuracion = () => {
     }
   }
 
+  const handleActivateIntegration = async () => {
+    try {
+      setActivating(true)
+      await apiRequest('/integrations/activate', {
+        method: 'PUT',
+        body: JSON.stringify({ provider: 'openai' })
+      })
+      const data = await apiRequest('/integrations')
+      setIntegration(data.integration)
+      alert('Integración activada exitosamente')
+    } catch (error) {
+      console.error('Error activating integration:', error)
+      alert('Error al activar la integración')
+    } finally {
+      setActivating(false)
+    }
+  }
+
+  const handleDeactivateIntegration = async () => {
+    try {
+      setDeactivating(true)
+      await apiRequest('/integrations/deactivate', {
+        method: 'PUT'
+      })
+      const data = await apiRequest('/integrations')
+      setIntegration(data.integration)
+      alert('Integración desactivada exitosamente')
+    } catch (error) {
+      console.error('Error deactivating integration:', error)
+      alert('Error al desactivar la integración')
+    } finally {
+      setDeactivating(false)
+    }
+  }
+
   if (promptsLoading || integrationLoading) {
     return <div>Loading...</div>
   }
@@ -154,7 +192,7 @@ const Configuracion = () => {
           Configuración de API
         </h3>
         <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>
-          Configuración de conexión a la API de IA (solo lectura)
+          Configuración de conexión a la API de IA
         </p>
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
@@ -190,6 +228,20 @@ const Configuracion = () => {
             readOnly
             style={{ backgroundColor: '#f8fafc', color: '#64748b' }}
           />
+        </div>
+        
+        {/* Update the buttons section to a single toggle button */}
+        <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+          <button 
+            className={integration?.provider === 'openai' ? 'btn btn-secondary' : 'btn btn-primary'}
+            onClick={integration?.provider === 'openai' ? handleDeactivateIntegration : handleActivateIntegration}
+            disabled={activating || deactivating}
+            style={{ opacity: (activating || deactivating) ? 0.5 : 1 }}
+          >
+            {activating ? 'Activando...' : 
+             deactivating ? 'Desactivando...' : 
+             integration?.provider === 'openai' ? 'Desactivar (Activar Echo)' : 'Activar OpenAI API'}
+          </button>
         </div>
       </div>
 
