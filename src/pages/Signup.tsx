@@ -1,15 +1,27 @@
 import React, { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useNavigate } from 'react-router-dom'
+import { apiRequest } from '../utils'
 
-const Login = () => {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+const Signup = () => {
+  const [formData, setFormData] = useState({
+    email: '',
+    name: '',
+    role: '',
+    password: ''
+  })
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   
   const { login } = useAuth()
   const navigate = useNavigate()
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -17,10 +29,17 @@ const Login = () => {
     setIsLoading(true)
 
     try {
-      await login({ email, password })
+      // Create user account
+      await apiRequest('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(formData)
+      })
+      
+      // Auto-login after successful signup
+      await login({ email: formData.email, password: formData.password })
       navigate('/resumen')
     } catch {
-      setError('Credenciales inválidas. Por favor, inténtalo de nuevo.')
+      setError('Error al crear la cuenta. Por favor, inténtalo de nuevo.')
     } finally {
       setIsLoading(false)
     }
@@ -31,12 +50,28 @@ const Login = () => {
       <div className="login-card">
         <div className="login-header">
           <h1>IA Dashboard</h1>
-          <p>Inicia sesión para acceder al panel de administración</p>
+          <p>Crea tu cuenta para acceder al panel de administración</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
           {error && <div className="error-message">{error}</div>}
           
+          <div className="form-group">
+            <label htmlFor="name" className="form-label">
+              Nombre
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              className="form-input"
+              required
+              disabled={isLoading}
+            />
+          </div>
+
           <div className="form-group">
             <label htmlFor="email" className="form-label">
               Email
@@ -44,9 +79,27 @@ const Login = () => {
             <input
               type="email"
               id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
               className="form-input"
+              required
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="role" className="form-label">
+              Rol en la empresa
+            </label>
+            <input
+              type="text"
+              id="role"
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              className="form-input"
+              placeholder="Ej: Desarrollador, Gerente, Analista..."
               required
               disabled={isLoading}
             />
@@ -59,8 +112,9 @@ const Login = () => {
             <input
               type="password"
               id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
               className="form-input"
               required
               disabled={isLoading}
@@ -72,16 +126,16 @@ const Login = () => {
             className="btn btn-primary login-button"
             disabled={isLoading}
           >
-            {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+            {isLoading ? 'Creando cuenta...' : 'Crear Cuenta'}
           </button>
         </form>
 
         <div style={{ textAlign: 'center', marginTop: '20px' }}>
           <p style={{ color: '#64748b', fontSize: '14px' }}>
-            ¿No tienes una cuenta?{' '}
+            ¿Ya tienes una cuenta?{' '}
             <button 
               type="button"
-              onClick={() => navigate('/signup')}
+              onClick={() => navigate('/login')}
               style={{ 
                 background: 'none', 
                 border: 'none', 
@@ -90,7 +144,7 @@ const Login = () => {
                 textDecoration: 'underline'
               }}
             >
-              Crear cuenta
+              Inicia sesión
             </button>
           </p>
         </div>
@@ -99,4 +153,4 @@ const Login = () => {
   )
 }
 
-export default Login
+export default Signup

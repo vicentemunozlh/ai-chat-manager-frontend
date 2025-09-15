@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard'
 import Conversaciones from './pages/Conversaciones'
 import Analytics from './pages/Analytics'
 import Configuracion from './pages/Configuracion'
+import Signup from './pages/Signup'
 import './App.css'
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
       <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc' }}>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/" element={<Navigate to="/resumen" replace />} />
           <Route
             path="/resumen"
