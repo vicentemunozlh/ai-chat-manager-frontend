@@ -1,5 +1,4 @@
 // TypeScript implementation for Phoenix JavaScript client
-
 declare module 'phoenix' {
   export interface SocketParams {
     [key: string]: string | number | boolean;
