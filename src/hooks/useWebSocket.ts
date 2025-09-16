@@ -71,7 +71,9 @@ export const usePhoenixChannel = ({
       isConnecting.current = true;
       setConnectionStatus('connecting');
 
-      const wsUrl = 'ws://localhost:4000/socket';
+      const wsUrl =
+        import.meta.env.VITE_CHAT_MANAGER_WS_URL ||
+        'ws://localhost:4000/socket';
 
       socket.current = new Socket(wsUrl, {
         params: { token: userToken || '' },

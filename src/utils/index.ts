@@ -57,7 +57,8 @@ export const getRatingColor = (rating: number) => {
 };
 
 // API utilities
-export const API_BASE_URL = 'http://localhost:4000/api';
+export const API_BASE_URL =
+  import.meta.env.VITE_CHAT_MANAGER_API_BASE_URL || 'http://localhost:4000/api';
 
 export const apiRequest = async (
   endpoint: string,
